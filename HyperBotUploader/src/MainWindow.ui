@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1200</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Hyper Robot Manager</string>
+  </property>
+
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+
+    <!-- Top Bar -->
+    <item>
+     <layout class="QHBoxLayout" name="topBar">
+
+      <item>
+       <widget class="QLabel" name="labelProject">
+        <property name="text">
+         <string>Project:</string>
+        </property>
+       </widget>
+      </item>
+
+      <item>
+       <widget class="QLineEdit" name="projectPath"/>
+      </item>
+
+      <item>
+       <widget class="QPushButton" name="browseButton">
+        <property name="text">
+         <string>Browse...</string>
+        </property>
+       </widget>
+      </item>
+
+      <item>
+       <spacer name="horizontalSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </spacer>
+      </item>
+
+      <item>
+       <widget class="QLabel" name="robotStatus">
+        <property name="text">
+         <string>🔴 Robot Disconnected</string>
+        </property>
+       </widget>
+      </item>
+
+     </layout>
+    </item>
+
+    <!-- Splitter -->
+    <item>
+
+     <widget class="QSplitter" name="mainSplitter">
+
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+
+      <!-- Left Panel -->
+      <widget class="QWidget" name="leftPanel">
+
+       <layout class="QVBoxLayout">
+
+        <item>
+         <widget class="QGroupBox" name="driverGroup">
+          <property name="title">
+           <string>Driver Control</string>
+          </property>
+
+          <layout class="QVBoxLayout">
+
+           <item>
+            <widget class="QRadioButton" name="radioMain">
+             <property name="text">
+              <string>Main</string>
+             </property>
+            </widget>
+           </item>
+
+           <item>
+            <widget class="QRadioButton" name="radioArcade">
+             <property name="text">
+              <string>Arcade</string>
+             </property>
+            </widget>
+           </item>
+
+           <item>
+            <widget class="QRadioButton" name="radioAtac">
+             <property name="text">
+              <string>ATAC</string>
+             </property>
+            </widget>
+           </item>
+
+          </layout>
+         </widget>
+        </item>
+
+        <item>
+         <widget class="QGroupBox" name="modeGroup">
+          <property name="title">
+           <string>Robot Mode</string>
+          </property>
+
+          <layout class="QVBoxLayout">
+
+           <item>
+            <widget class="QRadioButton" name="radioMatch">
+             <property name="text">
+              <string>Match</string>
+             </property>
+            </widget>
+           </item>
+
+           <item>
+            <widget class="QRadioButton" name="radioSkills">
+             <property name="text">
+              <string>Skills</string>
+             </property>
+            </widget>
+           </item>
+
+          </layout>
+         </widget>
+        </item>
+
+        <item>
+         <widget class="QGroupBox" name="autonGroup">
+          <property name="title">
+           <string>Autonomous Routine</string>
+          </property>
+
+          <layout class="QVBoxLayout">
+
+           <item>
+            <widget class="QComboBox" name="autonCombo"/>
+           </item>
+
+          </layout>
+         </widget>
+        </item>
+
+        <item>
+         <widget class="QGroupBox" name="featuresGroup">
+          <property name="title">
+           <string>Features</string>
+          </property>
+
+          <layout class="QVBoxLayout">
+
+           <item>
+            <widget class="QCheckBox" name="skillsPrepCheck">
+             <property name="text">
+              <string>Skills Prep</string>
+             </property>
+            </widget>
+           </item>
+
+           <item>
+            <widget class="QCheckBox" name="postAutonCheck">
+             <property name="text">
+              <string>Post Auton</string>
+             </property>
+            </widget>
+           </item>
+
+           <item>
+            <widget class="QCheckBox" name="gpsCheck">
+             <property name="text">
+              <string>GPS</string>
+             </property>
+            </widget>
+           </item>
+
+           <item>
+            <widget class="QCheckBox" name="visionCheck">
+             <property name="text">
+              <string>Vision</string>
+             </property>
+            </widget>
+           </item>
+
+          </layout>
+         </widget>
+        </item>
+
+        <item>
+         <spacer name="verticalSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+         </spacer>
+        </item>
+
+       </layout>
+
+      </widget>
+
+      <!-- Right Panel -->
+
+      <widget class="QWidget" name="rightPanel">
+
+       <layout class="QVBoxLayout">
+
+        <item>
+         <widget class="QPlainTextEdit" name="terminalOutput">
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+
+        <item>
+         <layout class="QHBoxLayout">
+
+          <item>
+           <widget class="QPushButton" name="cleanButton">
+            <property name="text">
+             <string>Clean</string>
+            </property>
+           </widget>
+          </item>
+
+          <item>
+           <widget class="QPushButton" name="buildButton">
+            <property name="text">
+             <string>Build</string>
+            </property>
+           </widget>
+          </item>
+
+          <item>
+           <widget class="QPushButton" name="uploadButton">
+            <property name="text">
+             <string>Upload</string>
+            </property>
+           </widget>
+          </item>
+
+          <item>
+           <widget class="QPushButton" name="buildUploadButton">
+            <property name="text">
+             <string>Build && Upload</string>
+            </property>
+           </widget>
+          </item>
+
+         </layout>
+        </item>
+
+       </layout>
+
+      </widget>
+
+     </widget>
+
+    </item>
+
+   </layout>
+  </widget>
+
+  <widget class="QMenuBar" name="menubar"/>
+  <widget class="QStatusBar" name="statusbar"/>
+
+ </widget>
+
+ <resources/>
+ <connections/>
+
+</ui>
