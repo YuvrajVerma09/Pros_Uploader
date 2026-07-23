@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.19)
 project(HyperBotUploader LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets LinguistTools)
+find_package(Qt6 REQUIRED COMPONENTS
+    Core
+    Widgets
+    SerialPort
+    LinguistTools
+)
 
 qt_standard_project_setup()
 
@@ -36,8 +41,11 @@ target_include_directories(HyperBotUploader
     PRIVATE
         include
 )
-qt_add_resources(HyperBotUploader "AppResources"
+qt_add_resources(HyperBotUploader AppResources
     PREFIX "/"
+
+    BASE resources
+
     FILES
         resources/overrideField.png
 )
@@ -46,10 +54,10 @@ qt_add_translations(
     TS_FILES HyperBotUploader_en_GB.ts
 )
 
-target_link_libraries(HyperBotUploader
-    PRIVATE
-        Qt::Core
-        Qt::Widgets
+target_link_libraries(HyperBotUploader PRIVATE
+    Qt::Core
+    Qt::Widgets
+    Qt::SerialPort
 )
 
 install(TARGETS HyperBotUploader

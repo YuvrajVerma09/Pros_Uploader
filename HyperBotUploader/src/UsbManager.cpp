@@ -1,5 +1,5 @@
 #include "UsbManager.h"
-
+#include <QSerialPortInfo>
 #include <QDir>
 
 UsbManager::UsbManager(QObject *parent)
@@ -9,10 +9,19 @@ UsbManager::UsbManager(QObject *parent)
 
 QStringList UsbManager::availablePorts()
 {
-    QDir dev("/dev");
+    QStringList ports;
 
-    QStringList filters;
-    filters << "cu.usb*" << "tty.usb*";
+    const auto serialPorts = QSerialPortInfo::availablePorts();
 
-    return dev.entryList(filters, QDir::System);
+    for (const QSerialPortInfo &port : serialPorts)
+    {
+        QString info =
+            port.portName() + " - " +
+            port.description() + " - " +
+            port.manufacturer();
+
+        ports << info;
+    }
+
+    return ports;
 }

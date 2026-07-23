@@ -33,16 +33,14 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Build the interface
     createUi();
-    portCombo->addItems(usbManager->availablePorts());
-    connect(visualizerButton,
-        &QPushButton::clicked,
-        this,
-        [this]()
+    usbManager = new UsbManager(this);
+    refreshPorts();
+    usbManager = new UsbManager(this);
     {
         FieldWindow *window = new FieldWindow();
 
         window->show();
-    });
+    };
     connect(refreshUsbButton,
         &QPushButton::clicked,
         this,
@@ -288,4 +286,17 @@ void MainWindow::loadAutonomousFunctions(const QString &filename)
     {
         autonCombo->addItem("No autonomous routines found");
     }
+    
+}
+void MainWindow::refreshPorts()
+{
+    portCombo->clear();
+
+    const auto ports = usbManager->availablePorts();
+
+    for (const QString &port : ports)
+        portCombo->addItem(port);
+
+    if (ports.isEmpty())
+        portCombo->addItem("No USB devices found");
 }

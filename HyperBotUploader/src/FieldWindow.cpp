@@ -2,23 +2,33 @@
 
 #include <QPainter>
 #include <QDebug>
+#include <QFile>
+#include <QResource>
+#include <QDirIterator>
 
 FieldWindow::FieldWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    resize(1000, 1000);
+    resize(1000,1000);
 
     setWindowTitle("Autonomous Visualizer");
 
-    fieldImage.load("programming/HyperBotUploader/resources/overrideField.png");
+    fieldImage.load("HyperBotUploader/resources/overrideField.png");
 
-    qDebug() << "Null:" << fieldImage.isNull();
-    qDebug() << "Size:" << fieldImage.size();
+    qDebug() << fieldImage.isNull();
+    qDebug() << fieldImage.size();
 
     if(fieldImage.isNull())
-        qDebug() << "Failed to load field image!";
+        qDebug() << "Failed to load image";
     else
-        qDebug() << "Field image loaded successfully.";
+        qDebug() << "Image loaded";
+    qDebug() << "Exists:" << QResource(":/overrideField.png").isValid();
+    QDirIterator it(":", QDirIterator::Subdirectories);
+
+    while (it.hasNext())
+    {
+        qDebug() << it.next();
+    }
 }
 
 void FieldWindow::paintEvent(QPaintEvent *)

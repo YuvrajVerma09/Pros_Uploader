@@ -59,7 +59,7 @@ private:
 
     QPushButton *visualizerButton;
     void loadAutonomousFunctions(const QString& filename);
-
+    void refreshPorts();
     QComboBox* portCombo;
     QPushButton* refreshUsbButton;
     UsbManager* usbManager;
