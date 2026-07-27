@@ -90,6 +90,9 @@ MainWindow::MainWindow(QWidget *parent)
             browseButton->setEnabled(!busy);
             portCombo->setEnabled(!busy);
             refreshUsbButton->setEnabled(!busy);
+
+            // Abort is only available while a process is running.
+            abortButton->setEnabled(busy);
         }
     );
 
@@ -146,7 +149,23 @@ MainWindow::MainWindow(QWidget *parent)
             }
         }
     );
+    connect(
+        prosUploader,
+        &ProsUploader::operationCancelled,
+        this,
+        [this](const QString &operation)
+        {
+            uploadButton->setProgress(0);
 
+            robotStatus->setText(
+                "🟠 " + operation + " aborted"
+            );
+
+            terminal->appendPlainText(
+                operation + " was aborted."
+            );
+        }
+    );
     //--------------------------------------------------
     // Clean button
     //--------------------------------------------------
@@ -228,7 +247,34 @@ MainWindow::MainWindow(QWidget *parent)
             prosUploader->buildAndUpload();
         }
     );
+    //--------------------------------------------------
+// Abort button
+//--------------------------------------------------
 
+connect(
+    abortButton,
+    &QPushButton::clicked,
+    this,
+    [this]()
+    {
+        if (!prosUploader->isBusy())
+        {
+            return;
+        }
+
+        abortButton->setEnabled(false);
+
+        robotStatus->setText(
+            "🟠 Aborting..."
+        );
+
+        terminal->appendPlainText(
+            "\nStopping the current PROS operation..."
+        );
+
+        prosUploader->cancel();
+    }
+);
     //--------------------------------------------------
     // Refresh USB ports
     //--------------------------------------------------
@@ -330,7 +376,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 void MainWindow::createUi()
 {
-    resize(1000, 500);
+    resize(1200, 500);
     setWindowTitle("⚡️ Hyper Robot Manager ⚡️");
 
     auto *central = new QWidget(this);
@@ -511,6 +557,12 @@ void MainWindow::createUi()
     buildUploadButton =
         new QPushButton("Build && Upload");
 
+    abortButton =
+        new QPushButton("Abort");
+
+    // It should only be enabled while PROS is running.
+    abortButton->setEnabled(false);
+
     visualizerButton =
         new QPushButton("Auton Visualizer");
 
@@ -518,6 +570,7 @@ void MainWindow::createUi()
     buttonLayout->addWidget(buildButton);
     buttonLayout->addWidget(uploadButton);
     buttonLayout->addWidget(buildUploadButton);
+    buttonLayout->addWidget(abortButton);
     buttonLayout->addWidget(visualizerButton);
 
     rightLayout->addLayout(buttonLayout);

@@ -21,7 +21,7 @@ public:
 
     QString sourceFile() const;
     QString projectRoot() const;
-
+    
     bool isBusy() const;
 
 public slots:
@@ -36,10 +36,13 @@ signals:
     void progressChanged(int percentage);
     void stageChanged(const QString &stage);
     void busyChanged(bool busy);
-
+    
     void operationFinished(
         const QString &operation,
         bool success
+    );
+    void operationCancelled(
+        const QString &operation
     );
 
 private:
@@ -50,6 +53,7 @@ private:
         Build,
         Upload
     };
+    bool m_cancelRequested = false;
 
     QString findProjectRoot(const QString &sourceFile) const;
     QString findProsExecutable() const;
@@ -69,6 +73,7 @@ private:
         int exitCode,
         QProcess::ExitStatus exitStatus
     );
+
 
     void processError(QProcess::ProcessError error);
 

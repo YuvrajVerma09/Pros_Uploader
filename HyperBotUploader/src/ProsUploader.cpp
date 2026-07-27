@@ -306,6 +306,7 @@ void ProsUploader::startUploadProcess()
 void ProsUploader::startProcess(
     Operation operation,
     const QStringList &arguments
+    
 )
 {
     if (isBusy())
@@ -330,6 +331,7 @@ void ProsUploader::startProcess(
 
         return;
     }
+    m_cancelRequested = false;
 
     m_prosExecutable = findProsExecutable();
 
@@ -490,6 +492,40 @@ void ProsUploader::processFinished(
 {
     const Operation completedOperation = m_operation;
 
+    //--------------------------------------------------
+    // User aborted the process
+    //--------------------------------------------------
+
+    if (m_cancelRequested)
+    {
+        const QString cancelledOperation =
+            operationName(completedOperation);
+
+        m_cancelRequested = false;
+        m_uploadAfterBuild = false;
+        m_operation = Operation::None;
+
+        emit progressChanged(0);
+
+        emit outputReady(
+            "\n" +
+            cancelledOperation +
+            " aborted by user.\n"
+        );
+
+        emit busyChanged(false);
+
+        emit operationCancelled(
+            cancelledOperation
+        );
+
+        return;
+    }
+
+    //--------------------------------------------------
+    // Normal completion
+    //--------------------------------------------------
+
     const bool success =
         exitStatus == QProcess::NormalExit &&
         exitCode == 0;
@@ -510,15 +546,21 @@ void ProsUploader::processFinished(
         emit progressChanged(100);
     }
 
+    //--------------------------------------------------
+    // Continue from build to upload
+    //--------------------------------------------------
+
     if (completedOperation == Operation::Build &&
         success &&
         m_uploadAfterBuild)
     {
         m_uploadAfterBuild = false;
 
-        emit operationFinished("Build", true);
+        emit operationFinished(
+            "Build",
+            true
+        );
 
-        // Wait until QProcess has fully entered NotRunning.
         QTimer::singleShot(
             0,
             this,
@@ -573,8 +615,13 @@ void ProsUploader::cancel()
         return;
     }
 
-    emit outputReady("\nCancelling operation...\n");
-
+    m_cancelRequested = true;
     m_uploadAfterBuild = false;
+
+    emit outputReady(
+        "\nAbort requested. Stopping PROS immediately...\n"
+    );
+
+    // Immediately terminates the QProcess.
     m_process.kill();
 }

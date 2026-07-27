@@ -85,6 +85,7 @@ private:
     UploadButton *uploadButton = nullptr;
     QPushButton *buildUploadButton = nullptr;
     QPushButton *visualizerButton = nullptr;
+    QPushButton *abortButton = nullptr;
 
     //--------------------------------------------------
     // Backend objects
