@@ -2,6 +2,7 @@
 #include "ProjectManager.h"
 #include <QMainWindow>
 #include "UsbManager.h"
+#include "UploadButton.h"
 
 // Widgets
 class QLabel;
@@ -11,6 +12,7 @@ class QPlainTextEdit;
 class QComboBox;
 class QCheckBox;
 class QRadioButton;
+class QTimer;
 
 class MainWindow : public QMainWindow
 {
@@ -52,7 +54,7 @@ private:
     // Bottom Buttons
     QPushButton* cleanButton;
     QPushButton* buildButton;
-    QPushButton* uploadButton;
+    UploadButton *uploadButton;
     QPushButton* buildUploadButton;
 
     ProjectManager* projectManager;
@@ -63,4 +65,7 @@ private:
     QComboBox* portCombo;
     QPushButton* refreshUsbButton;
     UsbManager* usbManager;
+
+    QTimer *uploadProgressTimer;
+    int uploadProgress = 0;
 };

@@ -1,6 +1,5 @@
 #include "MainWindow.h"
 #include "ProjectManager.h"
-
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFileDialog>
@@ -20,6 +19,7 @@
 #include <QRegularExpression>
 #include <QTextStream>
 #include "UsbManager.h"
+#include <QTimer>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -36,6 +36,8 @@ MainWindow::MainWindow(QWidget *parent)
     usbManager = new UsbManager(this);
     refreshPorts();
     usbManager = new UsbManager(this);
+    uploadProgressTimer = new QTimer(this);
+    uploadProgressTimer->setInterval(60);
     {
         FieldWindow *window = new FieldWindow();
 
@@ -73,14 +75,53 @@ MainWindow::MainWindow(QWidget *parent)
         terminal->appendPlainText("Loaded:");
         terminal->appendPlainText(file);
     });
+    connect(uploadButton,
+        &QPushButton::clicked,
+        this,
+        [this]()
+    {
+        uploadProgress = 0;
+
+        uploadButton->setProgress(uploadProgress);
+        uploadButton->setEnabled(false);
+
+        terminal->appendPlainText("Starting upload...");
+
+        uploadProgressTimer->start();
+    });
+    connect(uploadProgressTimer,
+        &QTimer::timeout,
+        this,
+        [this]()
+    {
+        uploadProgress++;
+
+        // This is where setProgress() belongs.
+        uploadButton->setProgress(uploadProgress);
+
+        if (uploadProgress >= 100)
+        {
+            uploadProgressTimer->stop();
+            uploadButton->setProgress(100);
+
+            terminal->appendPlainText("Upload complete.");
+
+            // Keep the completed state visible briefly.
+            QTimer::singleShot(1000, this, [this]()
+            {
+                uploadButton->setProgress(0);
+                uploadButton->setEnabled(true);
+            });
+        }
+    });
     
     
 }
 
 void MainWindow::createUi()
 {
-    resize(1200, 800);
-    setWindowTitle("Hyper Robot Manager");
+    resize(1000, 500);
+    setWindowTitle("⚡️ Hyper Robot Manager ⚡️");
 
     QWidget *central = new QWidget(this);
     setCentralWidget(central);
@@ -225,7 +266,8 @@ void MainWindow::createUi()
 
     cleanButton = new QPushButton("Clean");
     buildButton = new QPushButton("Build");
-    uploadButton = new QPushButton("Upload");
+    uploadButton = new UploadButton();
+    
     buildUploadButton = new QPushButton("Build && Upload");
     visualizerButton = new QPushButton("Auton Visualizer");
 

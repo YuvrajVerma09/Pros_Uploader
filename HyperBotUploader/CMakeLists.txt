@@ -35,6 +35,9 @@ qt_add_executable(HyperBotUploader
 
     include/UsbManager.h
     src/UsbManager.cpp
+
+    include/UploadButton.h
+    src/UploadButton.cpp
     
 )
 target_include_directories(HyperBotUploader
