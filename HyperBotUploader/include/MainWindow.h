@@ -1,10 +1,9 @@
 #pragma once
-#include "ProjectManager.h"
-#include <QMainWindow>
-#include "UsbManager.h"
-#include "UploadButton.h"
 
-// Widgets
+#include <QMainWindow>
+#include <QString>
+
+// Qt classes
 class QLabel;
 class QLineEdit;
 class QPushButton;
@@ -12,7 +11,12 @@ class QPlainTextEdit;
 class QComboBox;
 class QCheckBox;
 class QRadioButton;
-class QTimer;
+
+// Your classes
+class ProjectManager;
+class UsbManager;
+class ProsUploader;
+class UploadButton;
 
 class MainWindow : public QMainWindow
 {
@@ -23,49 +27,72 @@ public:
 
 private:
     void createUi();
-
-    // Top Bar
-    QLabel* robotStatus;
-    QLineEdit* projectPath;
-    QPushButton* browseButton;
-    
-
-    // Driver Control
-    QRadioButton* mainRadio;
-    QRadioButton* arcadeRadio;
-    QRadioButton* atacRadio;
-
-    // Robot Mode
-    QRadioButton* matchRadio;
-    QRadioButton* skillsRadio;
-
-    // Autonomous
-    QComboBox* autonCombo;
-
-    // Features
-    QCheckBox* skillsPrepCheck;
-    QCheckBox* postAutonCheck;
-    QCheckBox* gpsCheck;
-    QCheckBox* visionCheck;
-
-    // Terminal
-    QPlainTextEdit* terminal;
-
-    // Bottom Buttons
-    QPushButton* cleanButton;
-    QPushButton* buildButton;
-    UploadButton *uploadButton;
-    QPushButton* buildUploadButton;
-
-    ProjectManager* projectManager;
-
-    QPushButton *visualizerButton;
-    void loadAutonomousFunctions(const QString& filename);
+    void loadAutonomousFunctions(const QString &filename);
     void refreshPorts();
-    QComboBox* portCombo;
-    QPushButton* refreshUsbButton;
-    UsbManager* usbManager;
 
-    QTimer *uploadProgressTimer;
-    int uploadProgress = 0;
+    bool prepareProsOperation();
+    QString selectedPort() const;
+
+    //--------------------------------------------------
+    // Top bar
+    //--------------------------------------------------
+
+    QLabel *robotStatus = nullptr;
+    QLineEdit *projectPath = nullptr;
+    QPushButton *browseButton = nullptr;
+
+    QComboBox *portCombo = nullptr;
+    QPushButton *refreshUsbButton = nullptr;
+
+    //--------------------------------------------------
+    // Driver controls
+    //--------------------------------------------------
+
+    QRadioButton *mainRadio = nullptr;
+    QRadioButton *arcadeRadio = nullptr;
+    QRadioButton *atacRadio = nullptr;
+
+    //--------------------------------------------------
+    // Robot mode
+    //--------------------------------------------------
+
+    QRadioButton *matchRadio = nullptr;
+    QRadioButton *skillsRadio = nullptr;
+
+    //--------------------------------------------------
+    // Autonomous
+    //--------------------------------------------------
+
+    QComboBox *autonCombo = nullptr;
+
+    //--------------------------------------------------
+    // Features
+    //--------------------------------------------------
+
+    QCheckBox *skillsPrepCheck = nullptr;
+    QCheckBox *postAutonCheck = nullptr;
+    QCheckBox *gpsCheck = nullptr;
+    QCheckBox *visionCheck = nullptr;
+
+    //--------------------------------------------------
+    // Terminal and buttons
+    //--------------------------------------------------
+
+    QPlainTextEdit *terminal = nullptr;
+
+    QPushButton *cleanButton = nullptr;
+    QPushButton *buildButton = nullptr;
+    UploadButton *uploadButton = nullptr;
+    QPushButton *buildUploadButton = nullptr;
+    QPushButton *visualizerButton = nullptr;
+
+    //--------------------------------------------------
+    // Backend objects
+    //--------------------------------------------------
+
+    ProjectManager *projectManager = nullptr;
+    UsbManager *usbManager = nullptr;
+
+    // This is the declaration that is currently missing.
+    ProsUploader *prosUploader = nullptr;
 };

@@ -38,6 +38,9 @@ qt_add_executable(HyperBotUploader
 
     include/UploadButton.h
     src/UploadButton.cpp
+
+    include/ProsUploader.h
+    src/ProsUploader.cpp
     
 )
 target_include_directories(HyperBotUploader

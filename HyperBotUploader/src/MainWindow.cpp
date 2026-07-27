@@ -1,7 +1,14 @@
 #include "MainWindow.h"
+
+#include "FieldWindow.h"
 #include "ProjectManager.h"
+#include "ProsUploader.h"
+#include "UploadButton.h"
+#include "UsbManager.h"
+
 #include <QCheckBox>
 #include <QComboBox>
+#include <QFile>
 #include <QFileDialog>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -11,125 +18,328 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QRegularExpression>
 #include <QSplitter>
+#include <QTextCursor>
+#include <QTextStream>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
-#include "FieldWindow.h"
-#include <QFile>
-#include <QRegularExpression>
-#include <QTextStream>
-#include "UsbManager.h"
-#include <QTimer>
+
+
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    // Create backend
+    // Create backend objects once.
     projectManager = new ProjectManager(this);
     usbManager = new UsbManager(this);
+    prosUploader = new ProsUploader(this);
 
-    
-    
-
-    // Build the interface
+    // Create all widgets.
     createUi();
-    usbManager = new UsbManager(this);
+
+    // Populate the USB port list.
     refreshPorts();
-    usbManager = new UsbManager(this);
-    uploadProgressTimer = new QTimer(this);
-    uploadProgressTimer->setInterval(60);
-    {
-        FieldWindow *window = new FieldWindow();
 
-        window->show();
-    };
-    connect(refreshUsbButton,
-        &QPushButton::clicked,
+    //--------------------------------------------------
+    // PROS terminal output
+    //--------------------------------------------------
+
+    connect(
+        prosUploader,
+        &ProsUploader::outputReady,
         this,
-        [this]()
-    {
-        portCombo->clear();
-        portCombo->addItems(usbManager->availablePorts());
-    });
-    // Browse button
-    connect(browseButton,
-        &QPushButton::clicked,
-        this,
-        [this]()
-    {
-        QString file =
-            QFileDialog::getOpenFileName(
-                this,
-                "Select Robot Source File",
-                "",
-                "Source Files (*.cpp *.h *.hpp)");
-
-        if(file.isEmpty())
-            return;
-
-        projectPath->setText(file);
-        loadAutonomousFunctions(file);
-
-        robotStatus->setText("🟢 Source File Loaded");
-
-        terminal->appendPlainText("Loaded:");
-        terminal->appendPlainText(file);
-    });
-    connect(uploadButton,
-        &QPushButton::clicked,
-        this,
-        [this]()
-    {
-        uploadProgress = 0;
-
-        uploadButton->setProgress(uploadProgress);
-        uploadButton->setEnabled(false);
-
-        terminal->appendPlainText("Starting upload...");
-
-        uploadProgressTimer->start();
-    });
-    connect(uploadProgressTimer,
-        &QTimer::timeout,
-        this,
-        [this]()
-    {
-        uploadProgress++;
-
-        // This is where setProgress() belongs.
-        uploadButton->setProgress(uploadProgress);
-
-        if (uploadProgress >= 100)
+        [this](const QString &text)
         {
-            uploadProgressTimer->stop();
-            uploadButton->setProgress(100);
-
-            terminal->appendPlainText("Upload complete.");
-
-            // Keep the completed state visible briefly.
-            QTimer::singleShot(1000, this, [this]()
-            {
-                uploadButton->setProgress(0);
-                uploadButton->setEnabled(true);
-            });
+            terminal->moveCursor(QTextCursor::End);
+            terminal->insertPlainText(text);
+            terminal->moveCursor(QTextCursor::End);
         }
-    });
-    
-    
+    );
+
+    //--------------------------------------------------
+    // Upload percentage animation
+    //--------------------------------------------------
+
+    connect(
+        prosUploader,
+        &ProsUploader::progressChanged,
+        this,
+        [this](int percentage)
+        {
+            uploadButton->setProgress(percentage);
+        }
+    );
+
+    //--------------------------------------------------
+    // Disable controls while PROS is running
+    //--------------------------------------------------
+
+    connect(
+        prosUploader,
+        &ProsUploader::busyChanged,
+        this,
+        [this](bool busy)
+        {
+            cleanButton->setEnabled(!busy);
+            buildButton->setEnabled(!busy);
+            uploadButton->setEnabled(!busy);
+            buildUploadButton->setEnabled(!busy);
+
+            browseButton->setEnabled(!busy);
+            portCombo->setEnabled(!busy);
+            refreshUsbButton->setEnabled(!busy);
+        }
+    );
+
+    //--------------------------------------------------
+    // Operation finished
+    //--------------------------------------------------
+
+    connect(
+        prosUploader,
+        &ProsUploader::operationFinished,
+        this,
+        [this](const QString &operation, bool success)
+        {
+            if (operation == "Upload")
+            {
+                if (success)
+                {
+                    uploadButton->setProgress(100);
+                    robotStatus->setText("🟢 Upload complete");
+
+                    QTimer::singleShot(
+                        1200,
+                        this,
+                        [this]()
+                        {
+                            if (!prosUploader->isBusy())
+                            {
+                                uploadButton->setProgress(0);
+                            }
+                        }
+                    );
+                }
+                else
+                {
+                    uploadButton->setProgress(0);
+                    robotStatus->setText("🔴 Upload failed");
+                }
+            }
+            else if (operation == "Build")
+            {
+                robotStatus->setText(
+                    success
+                        ? "🟢 Build successful"
+                        : "🔴 Build failed"
+                );
+            }
+            else if (operation == "Clean")
+            {
+                robotStatus->setText(
+                    success
+                        ? "🟢 Clean successful"
+                        : "🔴 Clean failed"
+                );
+            }
+        }
+    );
+
+    //--------------------------------------------------
+    // Clean button
+    //--------------------------------------------------
+
+    connect(
+        cleanButton,
+        &QPushButton::clicked,
+        this,
+        [this]()
+        {
+            if (!prepareProsOperation())
+            {
+                return;
+            }
+
+            prosUploader->clean();
+        }
+    );
+
+    //--------------------------------------------------
+    // Build button
+    //--------------------------------------------------
+
+    connect(
+        buildButton,
+        &QPushButton::clicked,
+        this,
+        [this]()
+        {
+            if (!prepareProsOperation())
+            {
+                return;
+            }
+
+            prosUploader->build();
+        }
+    );
+
+    //--------------------------------------------------
+    // Upload button
+    //--------------------------------------------------
+
+    connect(
+        uploadButton,
+        &QPushButton::clicked,
+        this,
+        [this]()
+        {
+            if (!prepareProsOperation())
+            {
+                return;
+            }
+
+            uploadButton->setProgress(0);
+            robotStatus->setText("🟡 Uploading...");
+
+            prosUploader->upload();
+        }
+    );
+
+    //--------------------------------------------------
+    // Build and upload button
+    //--------------------------------------------------
+
+    connect(
+        buildUploadButton,
+        &QPushButton::clicked,
+        this,
+        [this]()
+        {
+            if (!prepareProsOperation())
+            {
+                return;
+            }
+
+            uploadButton->setProgress(0);
+            robotStatus->setText("🟡 Building...");
+
+            prosUploader->buildAndUpload();
+        }
+    );
+
+    //--------------------------------------------------
+    // Refresh USB ports
+    //--------------------------------------------------
+
+    connect(
+        refreshUsbButton,
+        &QPushButton::clicked,
+        this,
+        [this]()
+        {
+            refreshPorts();
+        }
+    );
+
+    //--------------------------------------------------
+    // Browse for robot source file
+    //--------------------------------------------------
+
+    connect(
+        browseButton,
+        &QPushButton::clicked,
+        this,
+        [this]()
+        {
+            const QString file =
+                QFileDialog::getOpenFileName(
+                    this,
+                    "Select Robot Source File",
+                    QString(),
+                    "Source Files (*.cpp *.cc *.cxx *.h *.hpp)"
+                );
+
+            if (file.isEmpty())
+            {
+                return;
+            }
+
+            projectPath->setText(file);
+            loadAutonomousFunctions(file);
+
+            terminal->appendPlainText("");
+            terminal->appendPlainText("Loaded source file:");
+            terminal->appendPlainText(file);
+
+            QString errorMessage;
+
+            if (prosUploader->setSourceFile(
+                    file,
+                    &errorMessage
+                ))
+            {
+                robotStatus->setText(
+                    "🟢 Source and PROS project loaded"
+                );
+
+                terminal->appendPlainText("");
+                terminal->appendPlainText(
+                    "PROS project root:"
+                );
+
+                terminal->appendPlainText(
+                    prosUploader->projectRoot()
+                );
+            }
+            else
+            {
+                robotStatus->setText(
+                    "🟠 Source loaded; no PROS project"
+                );
+
+                terminal->appendPlainText("");
+                terminal->appendPlainText(errorMessage);
+            }
+        }
+    );
+
+    //--------------------------------------------------
+    // Autonomous visualiser
+    //--------------------------------------------------
+
+    connect(
+        visualizerButton,
+        &QPushButton::clicked,
+        this,
+        [this]()
+        {
+            auto *window = new FieldWindow();
+
+            // Delete it when the user closes it.
+            window->setAttribute(Qt::WA_DeleteOnClose);
+
+            window->show();
+            window->raise();
+            window->activateWindow();
+        }
+    );
 }
+
 
 void MainWindow::createUi()
 {
     resize(1000, 500);
     setWindowTitle("⚡️ Hyper Robot Manager ⚡️");
 
-    QWidget *central = new QWidget(this);
+    auto *central = new QWidget(this);
     setCentralWidget(central);
 
     auto *mainLayout = new QVBoxLayout(central);
 
     //--------------------------------------------------
-    // Top Bar
+    // Top bar
     //--------------------------------------------------
 
     auto *topLayout = new QHBoxLayout();
@@ -137,20 +347,20 @@ void MainWindow::createUi()
     topLayout->addWidget(new QLabel("Project"));
 
     projectPath = new QLineEdit();
-    projectPath->setPlaceholderText("Select Robot Source...");
+    projectPath->setPlaceholderText(
+        "Select Robot Source..."
+    );
+
     topLayout->addWidget(projectPath);
 
     browseButton = new QPushButton("Browse");
     topLayout->addWidget(browseButton);
 
-    // USB Label
     topLayout->addWidget(new QLabel("USB"));
 
-    // USB Port Combo Box
     portCombo = new QComboBox();
     topLayout->addWidget(portCombo);
 
-    // Refresh Button
     refreshUsbButton = new QPushButton("Refresh");
     topLayout->addWidget(refreshUsbButton);
 
@@ -162,30 +372,34 @@ void MainWindow::createUi()
     mainLayout->addLayout(topLayout);
 
     //--------------------------------------------------
-    // Splitter
+    // Main splitter
     //--------------------------------------------------
 
     auto *splitter = new QSplitter(Qt::Horizontal);
-
     mainLayout->addWidget(splitter);
 
     //--------------------------------------------------
-    // LEFT PANEL
+    // Left panel
     //--------------------------------------------------
 
-    QWidget *leftWidget = new QWidget();
+    auto *leftWidget = new QWidget();
     auto *leftLayout = new QVBoxLayout(leftWidget);
 
     //--------------------------------------------------
-    // Driver Control
+    // Driver control
     //--------------------------------------------------
 
-    auto *driverGroup = new QGroupBox("Driver Control");
-    auto *driverLayout = new QVBoxLayout(driverGroup);
+    auto *driverGroup =
+        new QGroupBox("Driver Control");
+
+    auto *driverLayout =
+        new QVBoxLayout(driverGroup);
 
     mainRadio = new QRadioButton("Main");
     arcadeRadio = new QRadioButton("Arcade");
     atacRadio = new QRadioButton("ATAC");
+
+    mainRadio->setChecked(true);
 
     driverLayout->addWidget(mainRadio);
     driverLayout->addWidget(arcadeRadio);
@@ -194,14 +408,19 @@ void MainWindow::createUi()
     leftLayout->addWidget(driverGroup);
 
     //--------------------------------------------------
-    // Robot Mode
+    // Robot mode
     //--------------------------------------------------
 
-    auto *modeGroup = new QGroupBox("Robot Mode");
-    auto *modeLayout = new QVBoxLayout(modeGroup);
+    auto *modeGroup =
+        new QGroupBox("Robot Mode");
+
+    auto *modeLayout =
+        new QVBoxLayout(modeGroup);
 
     matchRadio = new QRadioButton("Match");
     skillsRadio = new QRadioButton("Skills");
+
+    matchRadio->setChecked(true);
 
     modeLayout->addWidget(matchRadio);
     modeLayout->addWidget(skillsRadio);
@@ -212,29 +431,39 @@ void MainWindow::createUi()
     // Autonomous
     //--------------------------------------------------
 
-    auto *autonGroup = new QGroupBox("Autonomous");
+    auto *autonGroup =
+        new QGroupBox("Autonomous");
 
-    auto *autonLayout = new QVBoxLayout(autonGroup);
+    auto *autonLayout =
+        new QVBoxLayout(autonGroup);
 
     autonCombo = new QComboBox();
-
     autonCombo->addItem("None");
 
     autonLayout->addWidget(autonCombo);
-
     leftLayout->addWidget(autonGroup);
 
     //--------------------------------------------------
     // Features
     //--------------------------------------------------
 
-    auto *featureGroup = new QGroupBox("Features");
-    auto *featureLayout = new QVBoxLayout(featureGroup);
+    auto *featureGroup =
+        new QGroupBox("Features");
 
-    skillsPrepCheck = new QCheckBox("Skills Prep");
-    postAutonCheck = new QCheckBox("Post Auton");
-    gpsCheck = new QCheckBox("GPS");
-    visionCheck = new QCheckBox("Vision");
+    auto *featureLayout =
+        new QVBoxLayout(featureGroup);
+
+    skillsPrepCheck =
+        new QCheckBox("Skills Prep");
+
+    postAutonCheck =
+        new QCheckBox("Post Auton");
+
+    gpsCheck =
+        new QCheckBox("GPS");
+
+    visionCheck =
+        new QCheckBox("Vision");
 
     featureLayout->addWidget(skillsPrepCheck);
     featureLayout->addWidget(postAutonCheck);
@@ -242,34 +471,48 @@ void MainWindow::createUi()
     featureLayout->addWidget(visionCheck);
 
     leftLayout->addWidget(featureGroup);
-
     leftLayout->addStretch();
 
     splitter->addWidget(leftWidget);
 
     //--------------------------------------------------
-    // RIGHT PANEL
+    // Right panel
     //--------------------------------------------------
 
-    QWidget *rightWidget = new QWidget();
+    auto *rightWidget = new QWidget();
     auto *rightLayout = new QVBoxLayout(rightWidget);
 
     terminal = new QPlainTextEdit();
     terminal->setReadOnly(true);
-    terminal->appendPlainText("Hyper Robot Manager");
-    terminal->appendPlainText("----------------------------");
+
+    terminal->appendPlainText(
+        "Hyper Robot Manager"
+    );
+
+    terminal->appendPlainText(
+        "----------------------------"
+    );
+
     terminal->appendPlainText("Ready.");
 
     rightLayout->addWidget(terminal);
+
+    //--------------------------------------------------
+    // Bottom buttons
+    //--------------------------------------------------
 
     auto *buttonLayout = new QHBoxLayout();
 
     cleanButton = new QPushButton("Clean");
     buildButton = new QPushButton("Build");
+
     uploadButton = new UploadButton();
-    
-    buildUploadButton = new QPushButton("Build && Upload");
-    visualizerButton = new QPushButton("Auton Visualizer");
+
+    buildUploadButton =
+        new QPushButton("Build && Upload");
+
+    visualizerButton =
+        new QPushButton("Auton Visualizer");
 
     buttonLayout->addWidget(cleanButton);
     buttonLayout->addWidget(buildButton);
@@ -284,61 +527,169 @@ void MainWindow::createUi()
     splitter->setStretchFactor(0, 1);
     splitter->setStretchFactor(1, 3);
 }
-void MainWindow::loadAutonomousFunctions(const QString &filename)
+
+
+void MainWindow::loadAutonomousFunctions(
+    const QString &filename
+)
 {
     autonCombo->clear();
+    autonCombo->addItem("None");
 
     QFile file(filename);
 
-    if(!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    if (!file.open(
+            QIODevice::ReadOnly |
+            QIODevice::Text
+        ))
+    {
+        autonCombo->addItem(
+            "Could not read source file"
+        );
+
         return;
+    }
 
-    QTextStream in(&file);
-
-    QString text = in.readAll();
+    QTextStream input(&file);
+    const QString text = input.readAll();
 
     file.close();
 
-    // Find every "void functionName("
-    QRegularExpression regex(
-        R"(void\s+([A-Za-z_][A-Za-z0-9_]*)\s*\()");
+    const QRegularExpression regex(
+        R"(void\s+([A-Za-z_][A-Za-z0-9_]*)\s*\()"
+    );
 
-    auto matches = regex.globalMatch(text);
+    QRegularExpressionMatchIterator matches =
+        regex.globalMatch(text);
 
-    while(matches.hasNext())
+    bool foundAutonomous = false;
+
+    while (matches.hasNext())
     {
-        auto match = matches.next();
+        const QRegularExpressionMatch match =
+            matches.next();
 
-    
-        QString name = match.captured(1);
-        QString lowerName = name.toLower();
+        const QString name = match.captured(1);
+        const QString lowerName = name.toLower();
 
-        if (name.contains("left") ||
-            name.contains("right") ||
-            name.contains("auton") ||
-            name.contains("sector") ||
-            name.contains("test") ||
-            name.contains("skills") ||
-            name.contains("default"))
+        if (lowerName.contains("left") ||
+            lowerName.contains("right") ||
+            lowerName.contains("auton") ||
+            lowerName.contains("sector") ||
+            lowerName.contains("test") ||
+            lowerName.contains("skills") ||
+            lowerName.contains("default"))
         {
             autonCombo->addItem(name);
+            foundAutonomous = true;
         }
     }
-    if (autonCombo->count() == 0)
+
+    if (!foundAutonomous)
     {
-        autonCombo->addItem("No autonomous routines found");
+        autonCombo->addItem(
+            "No autonomous routines found"
+        );
     }
-    
 }
+
+
 void MainWindow::refreshPorts()
 {
     portCombo->clear();
 
-    const auto ports = usbManager->availablePorts();
+    // Empty data means PROS should automatically detect
+    // the connected communication port.
+    portCombo->addItem(
+        "Automatic detection",
+        QString()
+    );
 
-    for (const QString &port : ports)
-        portCombo->addItem(port);
+    const QStringList ports =
+        usbManager->availablePorts();
 
-    if (ports.isEmpty())
-        portCombo->addItem("No USB devices found");
+    for (QString port : ports)
+    {
+#if defined(Q_OS_MACOS) || defined(Q_OS_LINUX)
+        if (!port.startsWith("/dev/"))
+        {
+            port.prepend("/dev/");
+        }
+#endif
+
+        portCombo->addItem(
+            port,
+            port
+        );
+    }
+}
+
+
+bool MainWindow::prepareProsOperation()
+{
+    const QString sourceFile =
+        projectPath->text().trimmed();
+
+    if (sourceFile.isEmpty())
+    {
+        QMessageBox::warning(
+            this,
+            "No Robot Code Selected",
+            "Select your robot C++ file first."
+        );
+
+        return false;
+    }
+
+    QString errorMessage;
+
+    if (!prosUploader->setSourceFile(
+            sourceFile,
+            &errorMessage
+        ))
+    {
+        QMessageBox::warning(
+            this,
+            "PROS Project Not Found",
+            errorMessage
+        );
+
+        return false;
+    }
+
+    prosUploader->setPort(selectedPort());
+
+    terminal->appendPlainText("");
+    terminal->appendPlainText(
+        "PROS project: " +
+        prosUploader->projectRoot()
+    );
+
+    return true;
+}
+
+
+QString MainWindow::selectedPort() const
+{
+    QString port =
+        portCombo->currentData().toString();
+
+    if (port.isEmpty())
+    {
+        port = portCombo->currentText();
+    }
+
+    if (port.startsWith(
+            "Automatic",
+            Qt::CaseInsensitive
+        ) ||
+        port.startsWith(
+            "No ",
+            Qt::CaseInsensitive
+        ))
+    {
+        return {};
+    }
+
+    return port;
 }
