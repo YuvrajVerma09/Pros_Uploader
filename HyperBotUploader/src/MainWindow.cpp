@@ -361,10 +361,45 @@ connect(
         this,
         [this]()
         {
-            auto *window = new FieldWindow();
+            const QString sourceFile =
+                projectPath->text().trimmed();
 
-            // Delete it when the user closes it.
-            window->setAttribute(Qt::WA_DeleteOnClose);
+            const QString selectedRoutine =
+                autonCombo->currentText().trimmed();
+
+            if (sourceFile.isEmpty())
+            {
+                QMessageBox::warning(
+                    this,
+                    "No Source File",
+                    "Select the robot source file first."
+                );
+
+                return;
+            }
+
+            if (selectedRoutine.isEmpty() ||
+                selectedRoutine == "None" ||
+                selectedRoutine.startsWith("No ") ||
+                selectedRoutine.startsWith("Could "))
+            {
+                QMessageBox::warning(
+                    this,
+                    "No Autonomous Selected",
+                    "Select an autonomous routine first."
+                );
+
+                return;
+            }
+
+            auto *window = new FieldWindow(
+                sourceFile,
+                selectedRoutine
+            );
+
+            window->setAttribute(
+                Qt::WA_DeleteOnClose
+            );
 
             window->show();
             window->raise();
@@ -608,23 +643,57 @@ void MainWindow::loadAutonomousFunctions(
 
     file.close();
 
-    const QRegularExpression regex(
-        R"(void\s+([A-Za-z_][A-Za-z0-9_]*)\s*\()"
+    /*
+     * Find functions written in this form:
+     *
+     * void defaultLeft(...)
+     * void testRight90(...)
+     */
+    const QRegularExpression functionRegex(
+        R"(\bvoid\s+([A-Za-z_][A-Za-z0-9_]*)\s*\()"
     );
 
     QRegularExpressionMatchIterator matches =
-        regex.globalMatch(text);
+        functionRegex.globalMatch(text);
 
     bool foundAutonomous = false;
 
     while (matches.hasNext())
     {
+        /*
+         * 'match' must be created inside this loop.
+         */
         const QRegularExpressionMatch match =
             matches.next();
 
-        const QString name = match.captured(1);
-        const QString lowerName = name.toLower();
+        const QString name =
+            match.captured(1);
 
+        const QString lowerName =
+            name.toLower();
+
+        /*
+         * Ignore wrapper functions and general robot
+         * lifecycle functions.
+         */
+        if (lowerName == "auton" ||
+            lowerName == "autonomous" ||
+            lowerName == "skillsauton" ||
+            lowerName == "run" ||
+            lowerName == "skillsprep" ||
+            lowerName == "postauton" ||
+            lowerName == "initialize" ||
+            lowerName == "disabled" ||
+            lowerName == "competitioninitialize" ||
+            lowerName == "opcontrol")
+        {
+            continue;
+        }
+
+        /*
+         * Include function names that appear to represent
+         * autonomous routines.
+         */
         if (lowerName.contains("left") ||
             lowerName.contains("right") ||
             lowerName.contains("auton") ||
@@ -633,8 +702,14 @@ void MainWindow::loadAutonomousFunctions(
             lowerName.contains("skills") ||
             lowerName.contains("default"))
         {
-            autonCombo->addItem(name);
-            foundAutonomous = true;
+            /*
+             * Prevent duplicate entries.
+             */
+            if (autonCombo->findText(name) == -1)
+            {
+                autonCombo->addItem(name);
+                foundAutonomous = true;
+            }
         }
     }
 
