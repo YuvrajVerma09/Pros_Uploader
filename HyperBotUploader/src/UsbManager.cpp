@@ -1,7 +1,10 @@
 #include "UsbManager.h"
 
-#include <QSettings>
 #include <QStringList>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
 
 UsbManager::UsbManager(QObject *parent)
     : QObject(parent)
@@ -14,32 +17,56 @@ QStringList UsbManager::availablePorts()
 
 #ifdef Q_OS_WIN
 
-    QSettings registry(
-        "HKEY_LOCAL_MACHINE\\HARDWARE\\DEVICEMAP\\SERIALCOMM",
-        QSettings::NativeFormat
-    );
+    /*
+     * Check COM1 -> COM256.
+     *
+     * QueryDosDevice tells us whether Windows currently
+     * has that COM device registered.
+     */
+    wchar_t targetPath[4096];
 
-    const QStringList keys = registry.allKeys();
-
-    for (const QString &key : keys)
+    for (int i = 1; i <= 256; ++i)
     {
-        const QString port =
-            registry.value(key).toString();
+        const QString portName =
+            QString("COM%1").arg(i);
 
-        if (!port.isEmpty() &&
-            !ports.contains(port))
+        const std::wstring widePort =
+            portName.toStdWString();
+
+        const DWORD result =
+            QueryDosDeviceW(
+                widePort.c_str(),
+                targetPath,
+                4096
+            );
+
+        if (result != 0)
         {
-            ports.append(port);
+            ports.append(portName);
         }
     }
 
 #else
 
-    // Existing macOS/Linux behaviour can remain here if wanted.
+    // macOS/Linux fallback if you still want cross-platform builds.
+    QDir dev("/dev");
+
+    QStringList filters;
+    filters
+        << "cu.usb*"
+        << "tty.usb*"
+        << "ttyACM*"
+        << "ttyUSB*";
+
+    const QStringList entries =
+        dev.entryList(filters, QDir::System);
+
+    for (const QString &entry : entries)
+    {
+        ports.append("/dev/" + entry);
+    }
 
 #endif
-
-    ports.sort();
 
     return ports;
 }
