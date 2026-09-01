@@ -1,11 +1,21 @@
-cmake_minimum_required(VERSION 3.19)
-project(HyperBotUploader LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.21)
 
-find_package(Qt6 REQUIRED COMPONENTS
-    Core
-    Widgets
-    SerialPort
-    LinguistTools
+project(
+    HyperBotUploader
+    VERSION 1.0.0
+    LANGUAGES CXX
+)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+find_package(
+    Qt6 6.4 REQUIRED
+    COMPONENTS
+        Core
+        Gui
+        Widgets
+        
 )
 
 qt_standard_project_setup()
@@ -55,15 +65,13 @@ qt_add_resources(HyperBotUploader AppResources
     FILES
         resources/overrideField.png
 )
-qt_add_translations(
-    TARGETS HyperBotUploader
-    TS_FILES HyperBotUploader_en_GB.ts
-)
+
 
 target_link_libraries(HyperBotUploader PRIVATE
     Qt::Core
     Qt::Widgets
-    Qt::SerialPort
+    
+    Qt6::Gui
 )
 
 install(TARGETS HyperBotUploader
@@ -74,7 +82,15 @@ install(TARGETS HyperBotUploader
 
 qt_generate_deploy_app_script(
     TARGET HyperBotUploader
-    OUTPUT_SCRIPT deploy_script
+    FILENAME_VARIABLE deploy_script
     NO_UNSUPPORTED_PLATFORM_ERROR
 )
+
 install(SCRIPT ${deploy_script})
+if(WIN32)
+    target_sources(
+        HyperBotUploader
+        PRIVATE
+            resources/windows.rc
+    )
+endif()

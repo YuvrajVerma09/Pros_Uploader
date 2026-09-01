@@ -6,6 +6,8 @@
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTimer>
+#include <QCoreApplication>
+
 
 ProsUploader::ProsUploader(QObject *parent)
     : QObject(parent)
@@ -128,42 +130,29 @@ QString ProsUploader::findProjectRoot(
 
 QString ProsUploader::findProsExecutable() const
 {
-    QProcessEnvironment environment =
-        QProcessEnvironment::systemEnvironment();
-
-    QStringList searchPaths =
-        environment.value("PATH").split(
-            QDir::listSeparator(),
-            Qt::SkipEmptyParts
-        );
-
-#ifdef Q_OS_MACOS
-    searchPaths.prepend("/usr/local/bin");
-    searchPaths.prepend("/opt/homebrew/bin");
-#endif
-
-    searchPaths.prepend(
-        QDir::home().filePath(".local/bin")
-    );
-
-    QString executable =
-        QStandardPaths::findExecutable(
-            "pros",
-            searchPaths
-        );
+    const QString appDir =
+        QCoreApplication::applicationDirPath();
 
 #ifdef Q_OS_WIN
-    if (executable.isEmpty())
-    {
-        executable =
-            QStandardPaths::findExecutable(
-                "pros.exe",
-                searchPaths
-            );
-    }
+
+    const QString bundledPros =
+        QDir(appDir).filePath(
+            "tools/pros/pros.exe"
+        );
+
+    if (QFileInfo::exists(bundledPros))
+        return bundledPros;
+
 #endif
 
-    return executable;
+    // Development fallback
+    const QString systemPros =
+        QStandardPaths::findExecutable("pros");
+
+    if (!systemPros.isEmpty())
+        return systemPros;
+
+    return {};
 }
 
 QString ProsUploader::normalisePort(
@@ -306,96 +295,129 @@ void ProsUploader::startUploadProcess()
 void ProsUploader::startProcess(
     Operation operation,
     const QStringList &arguments
-    
 )
 {
     if (isBusy())
     {
         emit outputReady(
-            "\nAnother PROS operation is already running.\n"
+            "PROS is already running.\n"
         );
-
         return;
     }
 
     if (m_projectRoot.isEmpty())
     {
         emit outputReady(
-            "\nNo PROS project has been located.\n"
+            "No PROS project selected.\n"
         );
-
-        emit operationFinished(
-            operationName(operation),
-            false
-        );
-
         return;
     }
-    m_cancelRequested = false;
-
-    m_prosExecutable = findProsExecutable();
 
     if (m_prosExecutable.isEmpty())
     {
         emit outputReady(
-            "\nCould not find the PROS CLI executable.\n"
-            "Confirm that `pros --version` works in Terminal.\n"
+            "PROS executable could not be found.\n"
         );
-
-        emit operationFinished(
-            operationName(operation),
-            false
-        );
-
         return;
     }
 
     m_operation = operation;
-    m_progressBuffer.clear();
+    m_cancelRequested = false;
 
-    QProcessEnvironment environment =
-        QProcessEnvironment::systemEnvironment();
-
-#ifdef Q_OS_MACOS
-    QString path = environment.value("PATH");
-
-    const QString additionalPaths =
-        "/opt/homebrew/bin:/usr/local/bin:" +
-        QDir::home().filePath(".local/bin");
-
-    if (!path.isEmpty())
-    {
-        path = additionalPaths + ":" + path;
-    }
-    else
-    {
-        path = additionalPaths;
-    }
-
-    environment.insert("PATH", path);
-#endif
-
-    m_process.setProcessEnvironment(environment);
-    m_process.setWorkingDirectory(m_projectRoot);
-    m_process.setProgram(m_prosExecutable);
-    m_process.setArguments(arguments);
-
-    QString commandText =
-        m_prosExecutable + " " + arguments.join(' ');
-
-    emit outputReady(
-        "\n\n$ " + commandText + "\n"
+    m_process.setWorkingDirectory(
+        m_projectRoot
     );
 
-    emit stageChanged(operationName(operation));
+    // =====================================================
+    // Environment used by PROS
+    // =====================================================
+
+    QProcessEnvironment env =
+        QProcessEnvironment::systemEnvironment();
+
+#ifdef Q_OS_WIN
+
+    const QString appDir =
+        QCoreApplication::applicationDirPath();
+
+    const QString toolchainRoot =
+        QDir(appDir).filePath(
+            "tools/pros-toolchain"
+        );
+
+    const QString toolchainUsr =
+        QDir(toolchainRoot).filePath(
+            "usr"
+        );
+
+    const QString toolchainBin =
+        QDir(toolchainUsr).filePath(
+            "bin"
+        );
+
+    const QString tempDirectory =
+        QDir(toolchainRoot).filePath(
+            "tmp"
+        );
+
+    // Make sure the tmp directory exists.
+    QDir().mkpath(tempDirectory);
+
+    // Tell PROS where its ARM toolchain lives.
+    env.insert(
+        "PROS_TOOLCHAIN",
+        QDir::toNativeSeparators(
+            toolchainUsr
+        )
+    );
+
+    // Make arm-none-eabi-g++, make.exe, etc. visible.
+    env.insert(
+        "PATH",
+        QDir::toNativeSeparators(
+            toolchainBin
+        )
+        + QDir::listSeparator()
+        + env.value("PATH")
+    );
+
+    // PROS bash expects a temporary directory.
+    env.insert(
+        "TMP",
+        QDir::toNativeSeparators(
+            tempDirectory
+        )
+    );
+
+    env.insert(
+        "TEMP",
+        QDir::toNativeSeparators(
+            tempDirectory
+        )
+    );
+
+#endif
+
+    m_process.setProcessEnvironment(env);
+
+    // =====================================================
+    // Start PROS
+    // =====================================================
+
     emit busyChanged(true);
 
-    if (operation == Operation::Upload)
-    {
-        emit progressChanged(0);
-    }
+    emit outputReady(
+        "\n$ " +
+        m_prosExecutable +
+        " " +
+        arguments.join(' ') +
+        "\n"
+    );
 
-    m_process.start();
+    m_process.start(
+        m_prosExecutable,
+        arguments
+    );
 }
 
 void ProsUploader::readProcessOutput()
