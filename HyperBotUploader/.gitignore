@@ -93,8 +93,7 @@ deploy/
 third_party/pros/
 third_party/pros-toolchain/
 
-# Inno Setup output
-installer/output/
+
 
 # Windows generated files
 *.exe
