@@ -87,10 +87,4 @@ qt_generate_deploy_app_script(
 )
 
 install(SCRIPT ${deploy_script})
-if(WIN32)
-    target_sources(
-        HyperBotUploader
-        PRIVATE
-            resources/windows.rc
-    )
-endif()
+
