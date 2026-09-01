@@ -94,7 +94,7 @@ third_party/pros-toolchain/
 
 
 # Windows generated files
-*.exe
+
 *.dll
 
 # CMake generated files
