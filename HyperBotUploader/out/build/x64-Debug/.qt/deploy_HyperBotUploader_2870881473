@@ -1,0 +1,6 @@
+
+include(E:/VEX/Pros_Uploader/HyperBotUploader/out/build/x64-Debug/.qt/QtDeploySupport.cmake)
+qt6_deploy_runtime_dependencies(
+    EXECUTABLE ${QT_DEPLOY_BIN_DIR}/HyperBotUploader.exe
+    GENERATE_QT_CONF
+)

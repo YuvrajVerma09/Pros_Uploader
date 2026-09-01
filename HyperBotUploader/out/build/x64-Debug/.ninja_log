@@ -1,0 +1,8 @@
+# ninja log v7
+9	514	8096602520000000	HyperBotUploader_autogen/timestamp	60654088d9654c7b
+9	514	8096602520000000	HyperBotUploader_autogen/mocs_compilation.cpp	60654088d9654c7b
+9	514	8096602520000000	E:/VEX/Pros_Uploader/HyperBotUploader/out/build/x64-Debug/HyperBotUploader_autogen/timestamp	60654088d9654c7b
+9	514	8096602520000000	E:/VEX/Pros_Uploader/HyperBotUploader/out/build/x64-Debug/HyperBotUploader_autogen/mocs_compilation.cpp	60654088d9654c7b
+530	602	8096602540000000	.rcc/qrc_AppResources.cpp	632700fc357085de
+530	602	8096602540000000	E:/VEX/Pros_Uploader/HyperBotUploader/out/build/x64-Debug/.rcc/qrc_AppResources.cpp	632700fc357085de
+685	1429	8096602540000000	CMakeFiles/HyperBotUploader.dir/out/build/x64-Debug/.rcc/qrc_AppResources.cpp.obj	f9a055b7a3f749ac

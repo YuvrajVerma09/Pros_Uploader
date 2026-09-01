@@ -83,11 +83,9 @@ CMakeLists.txt.user*
 /build*/
 /.qtcreator/
 # Build output
-build/
 cmake-build-*/
 
-# Packaged application
-deploy/
+
 
 # Bundled third-party binaries
 third_party/pros/
