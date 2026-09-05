@@ -4,14 +4,14 @@ project(HyperBotUploader LANGUAGES CXX)
 find_package(Qt6 REQUIRED COMPONENTS
     Core
     Widgets
-    SerialPort
-    LinguistTools
+    Gui
+    Network
 )
 
 qt_standard_project_setup()
 
 qt_add_executable(HyperBotUploader
-    WIN32
+    
     MACOSX_BUNDLE
 
     src/main.cpp
@@ -41,6 +41,9 @@ qt_add_executable(HyperBotUploader
 
     include/ProsUploader.h
     src/ProsUploader.cpp
+
+    include/DependencyManager.h
+    src/DependencyManager.cpp
     
 )
 target_include_directories(HyperBotUploader
@@ -60,10 +63,13 @@ qt_add_translations(
     TS_FILES HyperBotUploader_en_GB.ts
 )
 
-target_link_libraries(HyperBotUploader PRIVATE
-    Qt::Core
-    Qt::Widgets
-    Qt::SerialPort
+target_link_libraries(
+    HyperBotUploader
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Network
 )
 
 install(TARGETS HyperBotUploader
@@ -78,3 +84,20 @@ qt_generate_deploy_app_script(
     NO_UNSUPPORTED_PLATFORM_ERROR
 )
 install(SCRIPT ${deploy_script})
+
+set_target_properties(
+    HyperBotUploader
+    PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_GUI_IDENTIFIER
+            "com.hyperbot.uploader"
+
+        MACOSX_BUNDLE_BUNDLE_NAME
+            "HyperBotUploader"
+
+        MACOSX_BUNDLE_BUNDLE_VERSION
+            "${PROJECT_VERSION}"
+
+        MACOSX_BUNDLE_SHORT_VERSION_STRING
+            "${PROJECT_VERSION}"
+)
